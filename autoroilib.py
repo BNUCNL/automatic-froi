@@ -6,6 +6,8 @@ import nibabel as nib
 import numpy as np
 import re
 
+from mypy import base as mybase
+
 def ext_feature(sid, mask_coord, prob_data):
     """
     Feature extraction.
@@ -49,8 +51,9 @@ def ext_feature(sid, mask_coord, prob_data):
     object_beta_data = nib.load(object_beta_file).get_data()
     mni_data = nib.load(mni_file).get_data()
 
-    # extract features for each voxel in the mask
+    #-- extract features for each voxel in the mask
     sample_data = []
+    sample_label = [] 
     sample_num = len(mask_coord)
     
     # get neighbor offset
@@ -58,11 +61,171 @@ def ext_feature(sid, mask_coord, prob_data):
     neighbor_offset_2 = get_neighbor_offset(2)
     neighbor_offset_3 = get_neighbor_offset(3)
     
-    # 
+    # seed_offset_vtr
+    offset_len = 5
+    seed_offset_vtr_x = [[i, 0, 0] for i in
+                         range(-offset_len, offset_len+1) if i]
+    seed_offset_vtr_y = [[0, i, 0] for i in
+                         range(-offset_len, offset_len+1) if i]
+    seed_offset_vtr_z = [[0, 0, i] for i in
+                         range(-offset_len, offset_len+1) if i]
+    seed_offset_vtr = np.array(seed_offset_vtr_x + \
+                               seed_offset_vtr_y + \
+                               seed_offset_vtr_z)
+    
+    for idx in range(sample_num):
+        feature_buff = []
+        # voxel index
+        if not idx:
+            sample_label.append('index')
+        feature_buff.append(idx)
 
-    for idx in range()
+        # voxel coordinates
+        coord = mask_coord[idx]
+        if not idx:
+            sample_label.append('coord_x')
+        feature_buff.append(coord[0])
+        if not idx:
+            sample_label.append('coord_y')
+        feature_buff.append(coord[1])
+        if not idx:
+            sample_label.append('coord_z')
+        feature_buff.append(coord[2])
+        
+        # voxel value in different channels
+        if not idx:
+            sample_label.append('z')
+        feature_buff.append(zstat_data[tuple(coord)])
+        if not idx:
+            sample_label.append('mni')
+        feature_buff.append(mni_data[tuple(coord)])
+        if not idx:
+            sample_label.append('fbeta')
+        feature_buff.append(face_beta_data[tuple(coord)])
+        if not idx:
+            sample_label.append('obeta')
+        feature_buff.append(object_beta_data[tuple(coord)])
+        for i in range(prob_data.shape[3]):
+            if not idx:
+                sample_label.append('prob_class_' + str(i))
+            cls_prob_data = prob_data[..., i]
+            feature_buff.append(cls_prob_data[tuple(coord)])
 
+        # Type 1 feature
+        # mean value of neighbors around seed voxel
+        if not idx:
+            sample_label.append('z_neighbor_1')
+        feature_buff.append(get_mean(zstat_data, coord+neighbor_offset_1))
+        if not idx:
+            sample_label.append('z_neighbor_2')
+        feature_buff.append(get_mean(zstat_data, coord+neighbor_offset_2))
+        if not idx:
+            sample_label.append('z_neighbor_3')
+        feature_buff.append(get_mean(zstat_data, coord+neighbor_offset_3))
+        if not idx:
+            sample_label.append('mni_neighbor_1')
+        feature_buff.append(get_mean(mni_data, coord+neighbor_offset_1))
+        if not idx:
+            sample_label.append('mni_neighbor_2')
+        feature_buff.append(get_mean(mni_data, coord+neighbor_offset_2))
+        if not idx:
+            sample_label.append('mni_neighbor_3')
+        feature_buff.append(get_mean(mni_data, coord+neighbor_offset_3))
+        if not idx:
+            sample_label.append('fbeta_neighbor_1')
+        feature_buff.append(get_mean(face_beta_data, coord+neighbor_offset_1))
+        if not idx:
+            sample_label.append('fbeta_neighbor_2')
+        feature_buff.append(get_mean(face_beta_data, coord+neighbor_offset_2))
+        if not idx:
+            sample_label.append('fbeat_neighbor_3')
+        feature_buff.append(get_mean(face_beta_data, coord+neighbor_offset_3))
+        if not idx:
+            sample_label.append('obeta_neighbor_1')
+        feature_buff.append(get_mean(object_beta_data,
+                                     coord+neighbor_offset_1))
+        if not idx:
+            sample_label.append('obeta_neighbor_2')
+        feature_buff.append(get_mean(object_beta_data,
+                                     coord+neighbor_offset_2))
+        if not idx:
+            sample_label.append('obeta_neighbor_3')
+        feature_buff.append(get_mean(object_beta_data,
+                                     coord+neighbor_offset_3))
+        
+        # Type 2 feature
+        # Difference of local intensity and offset cuboid mean
+        for i in range(len(seed_offset_vtr)):
+            offset_seed = coord + seed_offset_vtr[i]
+            if not idx:
+                sample_label.append('diff_z_seed_offset_' + str(i))
+            feature_buff.append(zstat_data[tuple(coord)] - \
+                                get_mean(zstat_data,
+                                         offset_seed+neighbor_offset_1))
+            if not idx:
+                sample_label.append('diff_mni_seed_offset_' + str(i))
+            feature_buff.append(mni_data[tuple(coord)] - \
+                                get_mean(mni_data,
+                                         offset_seed+neighbor_offset_1))
+            if not idx:
+                sample_label.append('diff_fbeta_seed_offset_' + str(i))
+            feature_buff.append(face_beta_data[tuple(coord)] - \
+                                get_mean(face_beta_data,
+                                         offset_seed+neighbor_offset_1))
+            if not idx:
+                sample_label.append('diff_obeta_seed_offset_' + str(i))
+            feature_buff.append(object_beta_data[tuple(coord)] - \
+                                get_mean(object_beta_data,
+                                         offset_seed+neighbor_offset_1))
 
+        # Type 3 feature
+        # Diffence of oせt cuboid means
+        for i in range(len(seed_offset_vtr)):
+            for j in range(i+1, len(seed_offset_vtr)):
+                offset_seed_1 = coord + seed_offset_vtr[i]
+                offset_seed_2 = coord + seed_offset_vtr[j]
+                if not idx:
+                    sample_label.append('diff_z_offset_' + \
+                                        str(i) + '_offset_' + str(j))
+                feature_buff.append(get_mean(zstat_data,
+                                        offset_seed_1+neighbor_offset_1) - \
+                                    get_mean(zstat_data,
+                                        offset_seed_2+neighbor_offset_1))
+                if not idx:
+                    sample_label.append('diff_mni_offset_' + \
+                                        str(i) + '_offset_' + str(j))
+                feature_buff.append(get_mean(mni_data,
+                                        offset_seed_1+neighbor_offset_1) - \
+                                    get_mean(mni_data,
+                                        offset_seed_2+neighbor_offset_1))
+                if not idx:
+                    sample_label.append('diff_fbeta_offset_' + \
+                                        str(i) + '_offset_' + str(j))
+                feature_buff.append(get_mean(face_beta_data,
+                                        offset_seed_1+neighbor_offset_1) - \
+                                    get_mean(face_beta_data,
+                                        offset_seed_2+neighbor_offset_1))
+                if not idx:
+                    sample_label.append('diff_obeta_offset_' + \
+                                        str(i) + '_offset_' + str(j))
+                feature_buff.append(get_mean(object_beta_data,
+                                        offset_seed_1+neighbor_offset_1) - \
+                                    get_mean(object_beta_data,
+                                        offset_seed_2+neighbor_offset_1))
+       
+        # get voxel label
+        label = label_data[tuple(coord)]
+        if not idx:
+            sample_label.append('label')
+        if label == 1 or label == 3:
+            feature_buff.append(label)
+        else:
+            feature_buff.append(0)
+        
+        # store feature vector in the data matrix
+        sample_data.append(feature_buff)
+
+    return sample_label, sample_data
 
 def get_label_file(subject_dir):
     """
@@ -86,5 +249,69 @@ def get_neighbor_offset(radius):
                 offsets.append([x, y, z])
     return np.array(offsets)
 
+def get_mean(data, coords):
+    """
+    Get mean value of the input voxels.
 
+    """
+    val = 0
+    for coord in coords:
+        val += data[tuple(coord)]
+    return val / len(coords)
+
+def make_prior(subj_list, output_dir):
+    """
+    Create label probability map and the mask based on the sebject ID.
+
+    """
+    print 'Create a whole-fROI mask and several probabilistic map for' + \
+          ' each fROI.'
+    db_dir = r'/nfs/t2/atlas/database'
+    subj_num = len(subj_list)
+    for i in range(subj_num):
+        sid = subj_list[i]
+        subj_dir = os.path.join(db_dir, subj, 'face-object')
+        label_file = get_label_file(subj_dir)
+        label_data = nib.load(label_file).get_data()
+        img_header = nib.load(label_file).get_header()
+        if not i:
+            data_size = label_data.shape
+            prob_data = np.zeros((data_size[0],
+                                  data_size[1],
+                                  data_size[2],
+                                  2))
+        temp = label_data.copy()
+        temp[temp!=1] = 0
+        prob_data[..., 0] += temp
+        temp = label_data.copy()
+        temp[temp!=3] = 0
+        temp[temp!=0] = 1
+        prob_data[..., 1] += temp
+    # calculate probability map
+    prob_data = prob_data / subj_num
+    mask_data = prob_data.copy()
+    mask_data[mask_data!=0] = 1
+    # save to file
+    prob_file = os.path.join(output_dir, 'prob.nii.gz')
+    mybase.save2nifti(prob_data, img_header, prob_file)
+    mask_file = os.path.join(output_dir, 'mask.nii.gz')
+    mybase.save2nifti(mask_data, img_header, mask_file)
+    # return data
+    return prob_data, mask_data
+
+def get_mask_coord(mask_data, output_dir):
+    """
+    Get coordinates of the mask.
+
+    """
+    coords = mask_data.nonzero()
+    vxl_num = coords[0].shape[0]
+    c = [[coords[0][i], coords[1][i], coords[2][i]] for i in range(vxl_num)]
+    output_file = os.path.join(output_dir, 'mask_coords.csv')
+    f = open(output_file, 'wb')
+    f.write('x,y,z\n')
+    for line in c:
+        str = [str(item) for item in line]
+        f.write(','.join(str) + '\n')
+    return c
 
