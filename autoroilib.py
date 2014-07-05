@@ -25,7 +25,7 @@ def ext_feature(sid, mask_coord, prob_data):
     #-- data preparation
     # zstat nad label file
     db1_dir = r'/nfs/t2/atlas/database'
-    subject_dir = os.path.join(db_dir, sid, 'face-object')
+    subject_dir = os.path.join(db1_dir, sid, 'face-object')
     if not os.path.exists(subject_dir):
         print 'Subject ' + sid + 'does not exist in database.'
         return
@@ -179,7 +179,7 @@ def ext_feature(sid, mask_coord, prob_data):
                                          offset_seed+neighbor_offset_1))
 
         # Type 3 feature
-        # Diffence of oせt cuboid means
+        # Diffence of offset cuboid means
         for i in range(len(seed_offset_vtr)):
             for j in range(i+1, len(seed_offset_vtr)):
                 offset_seed_1 = coord + seed_offset_vtr[i]
@@ -245,7 +245,7 @@ def get_neighbor_offset(radius):
     offsets = []
     for x in range(-radius, radius+1):
         for y in range(-radius, radius+1):
-            for z in range(-radius, randius+1):
+            for z in range(-radius, radius+1):
                 offsets.append([x, y, z])
     return np.array(offsets)
 
@@ -270,7 +270,7 @@ def make_prior(subj_list, output_dir):
     subj_num = len(subj_list)
     for i in range(subj_num):
         sid = subj_list[i]
-        subj_dir = os.path.join(db_dir, subj, 'face-object')
+        subj_dir = os.path.join(db_dir, sid, 'face-object')
         label_file = get_label_file(subj_dir)
         label_data = nib.load(label_file).get_data()
         img_header = nib.load(label_file).get_header()
@@ -289,7 +289,7 @@ def make_prior(subj_list, output_dir):
         prob_data[..., 1] += temp
     # calculate probability map
     prob_data = prob_data / subj_num
-    mask_data = prob_data.copy()
+    mask_data = prob_data.sum(axis=3)
     mask_data[mask_data!=0] = 1
     # save to file
     prob_file = os.path.join(output_dir, 'prob.nii.gz')
@@ -311,7 +311,46 @@ def get_mask_coord(mask_data, output_dir):
     f = open(output_file, 'wb')
     f.write('x,y,z\n')
     for line in c:
-        str = [str(item) for item in line]
-        f.write(','.join(str) + '\n')
+        strline = [str(item) for item in line]
+        f.write(','.join(strline) + '\n')
     return c
+
+def split_subject(subject_list, group_number):
+    """
+    Split all subjects into n groups.
+
+    """
+    subj_num = len(subject_list)
+    x = np.arange(subj_num)
+    y = np.array_split(x, group_number)
+    subject_group = []
+    for l in y:
+        sid = [subject_list[item] for item in l]
+        subject_group.append(sid)
+    return subject_group
+
+def save_subject_group(subject_group, output_dir):
+    """
+    Save subject group into file.
+
+    """
+    for idx in range(len(subject_group)):
+        l = subject_group[idx]
+        out_file = os.path.join(output_dir, 'sessid_' + str(idx))
+        f = open(out_file, 'wb')
+        for item in l:
+            f.write(item + '\n')
+
+def save_sample(sample_label, sample_data, out_file):
+    """
+    Save sample data into a file.
+
+    """
+    f = open(out_file, 'wb')
+    f.write(','.join(sample_label) + '\n')
+    for line in sample_data:
+        strline = [str(item) for item in line]
+        f.write(','.join(strline) + '\n')
+    f.close()
+
 
