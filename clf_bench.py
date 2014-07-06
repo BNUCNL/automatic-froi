@@ -3,35 +3,46 @@
 
 import os
 import time
+import numpy as np
+import multiprocessing as mps
+import functools
+
 import autoroilib as arlib
 
 base_dir = r'/nfs/h1/workingshop/huanglijie/autoroi'
 doc_dir = os.path.join(base_dir, 'doc')
 data_dir = os.path.join(base_dir, 'data')
 
-sessid_file = os.path.join(doc_dir, 'test_sessid')
+sessid_file = os.path.join(doc_dir, 'sessid')
 sessid = open(sessid_file).readlines()
 sessid = [line.strip() for line in sessid]
 
-# split all subjects into 4 folds
-subj_group = arlib.split_subject(sessid, 3)
-#arlib.save_subject_group(subj_group, data_dir)
+#-- 5-folds cross validation
+# split all subjects into 5 folds
+cv_num = 5
+subj_group = arlib.split_subject(sessid, cv_num)
+arlib.save_subject_group(subj_group, data_dir)
 
-# extract training subjects dataset
-train_sessid = subj_group[0] + subj_group[1]
-test_sessid = subj_group[2]
+for i in range(cv_num):
+    cv_dir = os.path.join(data_dir, 'cv_' + str(i))
+    os.system('mkdir ' + cv_dir)
+    test_sessid = subj_group[i]
+    train_sessid = []
+    for j in range(cv_num):
+        if not j == i:
+            train_sessid += subj_group[j]
 
-# generate mask and probability map
-prob_data, mask_data = arlib.make_prior(train_sessid, data_dir)
-mask_coords = arlib.get_mask_coord(mask_data, data_dir)
+    # generate mask and probability map
+    prob_data, mask_data = arlib.make_prior(train_sessid, cv_dir)
+    mask_coords = arlib.get_mask_coord(mask_data, cv_dir)
 
-# extract features from each subject
-for subj in test_sessid:
-    print subj
-    st = time.time()
-    print 'Start time: ' + str(st)
-    sample_label, subj_data = arlib.ext_feature(subj, mask_coords, prob_data)
-    out_file = os.path.join(data_dir, subj + '_data.csv')
-    arlib.save_sample(sample_label, subj_data, out_file)
-    print 'Cost time: %s'%(time.time() - st)
+    # extract features from each subject
+    pool = mps.Pool(20)
+    result = pool.map(functools.partial(arlib.ext_subj_feature,
+                                        mask_coord=mask_coords,
+                                        prob_data=prob_data,
+                                        out_dir=cv_dir), sessid)
+    print result
+    pool.terminate()
+
 

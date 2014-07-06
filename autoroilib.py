@@ -353,4 +353,13 @@ def save_sample(sample_label, sample_data, out_file):
         f.write(','.join(strline) + '\n')
     f.close()
 
+def ext_subj_feature(sid, mask_coord=None, prob_data=None,
+                     out_dir=None):
+    """
+    Warper of ext_feature nad save_sample.
+
+    """
+    sample_label, subj_data = ext_feature(sid, mask_coord, prob_data)
+    out_file = os.path.join(out_dir, sid + '_data.csv')
+    save_sample(sample_label, subj_data, out_file)
 
