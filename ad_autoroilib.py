@@ -387,4 +387,26 @@ def get_list_data(subj_list, data_dir):
             samples = np.vstack(samples, data)
     return samples
 
+def samples_stat(samples):
+    """
+    A brief stats of categories of the samples.
+
+    """
+    labels = samples[..., -1]
+    uniq_label = np.unique(labels)
+    for val in uniq_label:
+        print str(val) + '; ',
+        print np.sum(labels == val)
+    print '\n'
+
+def dice(true_bool, predicted_bool):
+    """
+    Compute the Dice coefficient.
+
+    """
+    if not np.sum(true_bool):
+        if not np.sum(predicted_bool):
+            return 1.0
+    return 2.0 * np.sum(r * p) / (np.sum(r) + np.sum(p))
+
 

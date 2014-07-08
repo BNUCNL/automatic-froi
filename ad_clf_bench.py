@@ -65,7 +65,22 @@ for i in range(cv_num):
     cv_dir = os.path.join(data_dir, 'cv_' + str(i))
     train_data = arlib.get_list_data(train_sessid, cv_dir)
     test_data = arlib.get_list_data(test_sessid, cv_dir)
-    
+    print 'Samples stats for train-dataset:'
+    arlib.samples_stat(train_data)
+    print 'Samples stats for test-dataset:'
+    arlib.samples_stat(test_data)
+
+    ## remove samples whose z-value is less than 2.3
+    #print 'Remove samples whose z-value is less than 2.3 ...'
+    #train_data_mask = train_data[:, 4] >= 2.3
+    #test_data_mask = test_data[:, 4] >= 2.3
+    #train_data = train_data[train_data_mask]
+    #test_data = test_data[test_data_mask]
+    #print 'Samples stats for train-dataset:'
+    #arlib.samples_stat(train_data)
+    #print 'Samples stats for test-dataset:'
+    #arlib.samples_stat(test_data)
+
     # split label and feature
     train_x = train_data[..., :-1]
     train_y = train_data[..., -1]
@@ -87,4 +102,10 @@ for i in range(cv_num):
     # prob_predicted_y = clf.predict_proba(test_x)
 
     # model evaluation
-
+    for l in range(1, 6, 2):
+        print 'Dice coefficient for label ' + str(l),
+        true_bool = test_y == l
+        predicted_bool = predicted_y == l
+        dice_coef = arlib.dice(true_bool, predicted_bool)
+        print dice_coef
+    
