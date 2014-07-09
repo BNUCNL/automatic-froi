@@ -194,7 +194,7 @@ def main():
             sess_train = sess[train]
             sess_test  = sess[test]
             #-------------------------------parameter selection part-----------------------------
-            '''
+        
             sk = time.time()
             for i,p in enumerate(param):
                 print 'parameter:',p
@@ -342,7 +342,7 @@ def main():
             
             filename = "Metrics_%d_fold.txt"%k
             np.savetxt(filename,Metrics,fmt='%1.5e',delimiter=',',newline='\n')
-            '''
+        
             #-----------------------------------------test part------------------------------------------
             #compute dice for every single test subject. compute the score and save the prediction as .nii
             #using the optimized paramter train and predict the testset.
