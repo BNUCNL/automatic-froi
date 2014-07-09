@@ -36,7 +36,7 @@ def main():
     database = '/nfs/t2/atlas/database'
     contrast = 'face-object'
     sess_list = read_sess_list('./sess')
-    roi_mask = nib.load('./mask3.nii.gz')
+    roi_mask = nib.load('./pre_mask.nii.gz')
     mask_data = roi_mask.get_data()
     
     #get cubiods mask by max/min the spatical range.
@@ -75,13 +75,43 @@ def main():
     subject_num = len(sess_list)
     sample_num = len(mask_index) # per subject
     
+    sub_stat = {}
+
     #get neighbor offset 1,2,3 radiud cubois.
     of_1 = get_neighbor_offset(1)
     of_2 = get_neighbor_offset(2)
     of_3 = get_neighbor_offset(3)
     #print offset_1.shape, offset_2.shape, offset_3.shape
-
-
+    vecs = np.array([[1,0,0],
+                     [-1,0,0],
+                     [0,1,0],
+                     [0,-1,0],
+                     [0,0,1],
+                     [0,0,-1],
+                     [2,0,0],
+                     [-2,0,0],
+                     [0,2,0],
+                     [0,-2,0],
+                     [0,0,2],
+                     [0,0,-2],
+                     [3,0,0],
+                     [-3,0,0],
+                     [0,3,0],
+                     [0,-3,0],
+                     [0,0,3],
+                     [0,0,-3]])
+    print vecs,vecs.shape
+    
+    r_os = np.zeros((54,4))
+    for i in range(0,54):
+        r_os[i][0] = np.random.randint(0,18)
+        tmp= np.random.randint(0,18)
+        while tmp==r_os[i][0]:
+            tmp= np.random.randint(0,18)
+        r_os[i][1] = tmp
+        r_os[i][2] = np.random.randint(0,2)
+        r_os[i][3] = np.random.randint(0,2)
+    print r_os
     ##functions test
     #img = nib.load("MNI_brain.nii.gz")
     #data = img.get_data()
@@ -96,21 +126,25 @@ def main():
     
     #feature extraction on train set.
     #save the every subject sample per file named sample_sid.txt
-    
     pool = mul.Pool(30)
     result = pool.map(functools.partial(ext,database=database,mask_index=mask_index,
-        of_1=of_1,of_2=of_2,of_3=of_3), sess_list)
+        of_1=of_1,of_2=of_2,of_3=of_3,of_vec=vecs,r_os=r_os), sess_list)
     print result
+    sf = open('sub_filt','wb')
+    for s in result:
+        if s!= 'F':
+            sf.write(s+'\n')
+    sf.close()
 
     print "Feature extraction total time:%s"%(time.time()-st)
     return
 
-def ext(sub=None,database=None,mask_index=None,of_1=None,of_2=None,of_3=None):
+def ext(sub=None,database=None,mask_index=None,of_1=None,of_2=None,of_3=None,of_vec=None,r_os=None):
     """
     Wrapper function.
     Tested
     """
-    print "I am %s"%sub
+    print "Starting extraction: %s"%sub
     contrast = 'face-object'
     sub_dir =  os.path.join(database,sub)
     sub_ct_dir = os.path.join(sub_dir,contrast)
@@ -118,20 +152,28 @@ def ext(sub=None,database=None,mask_index=None,of_1=None,of_2=None,of_3=None):
     for file in f_list:
         if re.search('zstat1.nii.gz',file):
             x_img =  os.path.join(sub_ct_dir,file)
-            print x_img
+           # print x_img
         if re.search('_ff.nii.gz',file): 
             y_img =  os.path.join(sub_ct_dir,file)
-            print y_img
+           # print y_img
     #initial the feature array.
     #3+3+3+3+30+30+20+1=93
-    feat_buff = np.zeros((len(mask_index),93))
+    feat_buff = np.zeros(229)
     samples = feature_ext(x_img,y_img,mask_index,
-                          of_1,of_2,of_3,feat_buff)
+                          of_1,of_2,of_3,of_vec,r_os,feat_buff)
     #mask = samples[:,92]!=0
     #print samples[mask,92]
-    #output samples as a file
-    np.savetxt('sample_repo/sample_%s'%sub,samples,fmt='%10.5f',delimiter='    ',newline='\n')
-    return 'Done'
+    #output samples as a fiile
+    length = len(samples)
+    if length >=27:
+        mask1 = samples[:,-4]==1
+        mask2 = samples[:,-4]==3
+        if np.sum(mask1)>=27 and np.sum(mask2)>=27:
+            print np.sum(mask1),np.sum(mask2),length
+            print samples
+            np.savetxt('samples_dir/sample_%s'%sub,samples,fmt='%10.5f',delimiter='    ',newline='\n')
+            return sub
+    return 'F'
 
 def writeout(mask_index):
     """
@@ -157,119 +199,118 @@ def get_neighbor_offset(radius):
     offsets = np.array(offsets)
     return offsets
 
-def feature_ext(sub_x,sub_y,mask_index,os1,os2,os3,feat):
+def feature_ext(sub_x,sub_y,mask_index,os1,os2,os3,of_vec,r_os,feat):
     """
     Feature extraction fucntion.
     """
-    ###offset vectors 
-    vecs = np.array([[1,0,0],
-            [-1,0,0],
-            [0,1,0],
-            [0,-1,0],
-            [0,0,1],
-            [0,0,-1],
-            [2,0,0],
-            [-2,0,0],
-            [0,2,0],
-            [0,-2,0],
-            [0,0,2],
-            [0,0,-2],
-            [3,0,0],
-            [-3,0,0],
-            [0,3,0],
-            [0,-3,0],
-            [0,0,3],
-            [0,0,-3],
-            [4,0,0],
-            [-4,0,0],
-            [0,4,0],
-            [0,-4,0],
-            [0,0,4],
-            [0,0,-4],
-            [5,0,0],
-            [-5,0,0],
-            [0,5,0],
-            [0,-5,0],
-            [0,0,5],
-            [0,0,-5]])
-    print vecs.shape
+    #offset vectors
+    vecs = of_vec
     #load the zstat image, labeled image and standard brain image
     x = nib.load(sub_x)
     y = nib.load(sub_y)
     MNI = nib.load("./MNI_brain.nii.gz")
-    prior = nib.load("./prob_allsub_sthr0.nii.gz")
+    #prior = nib.load("./prob_allsub_sthr0.nii.gz")
     
     x_data = x.get_data()
     y_data = y.get_data()
     s_data = MNI.get_data()
-    p_data = prior.get_data()
-
+    #p_data = prior.get_data()
     #center of the region.
-    c = [24.0, 29.0, 27.0]
-    print c
+    c = [24.0, 28.0, 27.0]
+    feat_all = []
+    flag = 0
     #one coordinate one feature vec
     for i,coor in enumerate(np.array(mask_index)):
+        #st = time.time()
+        #1.local f (0-3:x,y,z,v)
         #print i,coor
-        x = coor[0]-c[0]
-        y = coor[1]-c[1]
-        z = coor[2]-c[2]
-        r,t,p = spherical_coordinates(x,y,z)
-        feat[i][0] = r
-        feat[i][1] = t
-        feat[i][2] = p
-        
         I = x_data[tuple(coor)]
+        if I < 2.3:
+            continue
+        feat[226] = coor[0]
+        feat[227] = coor[1]
+        feat[228] = coor[2]
+        
+        feat[0] = I
+        
+        x = coor[0] - c[0]
+        y = coor[1] - c[1]
+        z = coor[2] - c[2]
+        r,t,p = spherical_coordinates(x,y,z)
+        
+        feat[1] = r
+        feat[2] = t
+        feat[3] = p
+
         S = s_data[tuple(coor)]
-        P = p_data[tuple(coor)]
+        feat[114] = S
         
-        feat[i][3] = I
-        feat[i][4] = S
-        feat[i][5] = P
-        #print I,P
-
-        neigh1 = coor+os1
-        #print neigh1,neigh1.shape
-        neigh2 = coor+os2
-        neigh3 = coor+os3
+        #context feature:1.neighord smooth
+        neigh1 = coor + os1
+        neigh2 = coor + os2
+        #neigh3 = coor + os3
         
-        feat[i][6] = get_mean(x_data,neigh1)
-        feat[i][7] = get_mean(x_data,neigh2)
-        feat[i][8] = get_mean(x_data,neigh3)
+        mean1 = get_mean(x_data,neigh1)
+        mean2 = get_mean(x_data,neigh2)
+        #mean3 = get_mean(x_data,neigh3)
+        feat[4] = mean1
+        feat[5] = mean2
+        #feat[i][6] = mean3
         
-        feat[i][9] = get_mean(s_data,neigh1)
-        feat[i][10] = get_mean(s_data,neigh2)
-        feat[i][11] = get_mean(s_data,neigh3)
+        mean_s1 = get_mean(s_data,neigh1)
+        mean_s2 = get_mean(s_data,neigh2)
+        #mean_s3 = get_mean(s_data,neigh3)
+        feat[115] = mean_s1
+        feat[116] = mean_s2
+        #feat[i][154] = mean_s3
         #print feat[i]
+        #context feature:2.compare with offset region
         for j,v in enumerate(vecs):
-            # print j,v
+            #print j,v
             p = v + coor
-            pn = p + os1
-            # print coor,p,pn
+            pn1 = p + os1
+            pn2 = p + os2
+           # pn3 = p + os3
+            feat[6+j] = I - get_mean(x_data,pn1)
+            feat[24+j] =  mean1 - get_mean(x_data,pn1)
+            feat[42+j] =  mean2 - get_mean(x_data,pn2)
+          #  feat[i][61+j] =  mean3 - get_mean(x_data,pn3)
             
-            feat[i][12+j] = I - get_mean(x_data,pn)
-            feat[i][42+j] = S - get_mean(s_data,pn)
-            #print I,get_mean(x_data,pn),P,get_mean(s_data,pn)
-            #print feat[i]
+            feat[117+j]  =  S - get_mean(s_data,pn1)
+            feat[135+j] =  mean_s1 - get_mean(s_data,pn1)
+            feat[153+j] =  mean_s2 - get_mean(s_data,pn2)
+            #feat[i][209+j] =  mean_s3 - get_mean(s_data,pn3)
             #break
-        for k in range(0,10):
-            n1=np.random.randint(0,29)
-            p1 = vecs[n1]+coor
-            pn1 = p1 + os1
+        #print feat[i]
+        #context feature:3.compare the two offset regions
         
-            n2=np.random.randint(0,29)
-            p2 = vecs[n2]+coor
-            pn2 = p2 + os1
-
-            feat[i][72+k]= get_mean(x_data,pn1)-get_mean(x_data,pn2)
-            feat[i][82+k]= get_mean(s_data,pn1)-get_mean(s_data,pn2)
-        #break
+        os = [os1,os2]
+        for j,rand in enumerate(r_os):
+            #print rand
+            vs = vecs[rand[0]]
+            vt = vecs[rand[1]]
+            p1 = vs + coor
+            p2 = vt + coor
+            pn1 = p1 + os[int(rand[2])]
+            pn2 = p2 + os[int(rand[3])]
+            
+            feat[60+j] = get_mean(x_data,pn1) - get_mean(x_data,pn2)
+            feat[171+j]= get_mean(s_data,pn1) - get_mean(s_data,pn2)
+        
         #Label 1/0
         label = y_data[tuple(coor)]
-        if label == 1 or label == 3 or label ==5:
-            feat[i][92] = label
+        if label == 1 or label == 3:
+            feat[225] = label
+        #    print feat[i],feat[i].shape
         else:
-            feat[i][92] = 0
-    return  feat
+            feat[225] = 0
+       # print 'time:',time.time()-st
+        if flag == 0:
+            feat_all = feat
+            flag = 1
+        else:
+            feat_all = np.vstack((feat_all,feat))
+    return  feat_all
 
 def output_sess_list(sess,list):
     """
