@@ -62,7 +62,7 @@ def ext_feature(sid, mask_coord, prob_data):
     neighbor_offset_3 = get_neighbor_offset(3)
     
     # seed_offset_vtr
-    offset_len = 5
+    offset_len = 4
     seed_offset_vtr_x = [[i, 0, 0] for i in
                          range(-offset_len, offset_len+1) if i]
     seed_offset_vtr_y = [[0, i, 0] for i in
@@ -75,10 +75,6 @@ def ext_feature(sid, mask_coord, prob_data):
     
     for idx in range(sample_num):
         feature_buff = []
-        # voxel index
-        if not idx:
-            sample_label.append('index')
-        feature_buff.append(idx)
 
         # voxel coordinates
         coord = mask_coord[idx]
@@ -95,6 +91,8 @@ def ext_feature(sid, mask_coord, prob_data):
         # voxel value in different channels
         if not idx:
             sample_label.append('z')
+        elif zstat_data[tuple(coord)] < 2.3:
+            continue
         feature_buff.append(zstat_data[tuple(coord)])
         if not idx:
             sample_label.append('mni')
