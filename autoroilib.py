@@ -363,3 +363,50 @@ def ext_subj_feature(sid, mask_coord=None, prob_data=None,
     out_file = os.path.join(out_dir, sid + '_data.csv')
     save_sample(sample_label, subj_data, out_file)
 
+def get_subj_data(subj_file):
+    """
+    Get samples from individual subject.
+
+    """
+    data = np.loadtxt(subj_file, skiprows=1, delimiter=',')
+    data = data[..., 1:]
+    return data
+
+def get_list_data(subj_list, data_dir):
+    """
+    Get data for a list of subjects.
+
+    """
+    samples = np.array([])
+    for subj in subj_list:
+        f = os.path.join(data_dir, subj + '_data.csv')
+        data = get_subj_data(f)
+        if not samples.size:
+            samples = data
+        else:
+            samples = np.vstack((samples, data))
+    return samples
+
+def samples_stat(samples):
+    """
+    A brief stats of categories of the samples.
+
+    """
+    labels = samples[..., -1]
+    uniq_label = np.unique(labels)
+    for val in uniq_label:
+        print str(val) + '; ',
+        print np.sum(labels == val)
+    print '\n'
+
+def dice(true_bool, predicted_bool):
+    """
+    Compute the Dice coefficient.
+
+    """
+    if not np.sum(true_bool):
+        if not np.sum(predicted_bool):
+            return 1.0
+    return 2.0 * np.sum(r * p) / (np.sum(r) + np.sum(p))
+
+
