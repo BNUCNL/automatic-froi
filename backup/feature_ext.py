@@ -211,10 +211,15 @@ def feature_ext(sub_x,sub_y,mask_index,os1,os2,os3,of_vec,r_os,feat):
     MNI = nib.load("./MNI_brain.nii.gz")
     #prior = nib.load("./prob_allsub_sthr0.nii.gz")
     
+    # x data -> zstat
     x_data = x.get_data()
+    # y data -> label
     y_data = y.get_data()
+    # s data -> mni structure
     s_data = MNI.get_data()
+    # p data -> probability
     #p_data = prior.get_data()
+
     #center of the region.
     c = [24.0, 28.0, 27.0]
     feat_all = []
