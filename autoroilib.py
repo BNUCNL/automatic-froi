@@ -406,3 +406,25 @@ def dice(true_bool, predicted_bool):
     return 2.0 * np.sum(true_bool * predicted_bool) / \
            (np.sum(true_bool) + np.sum(predicted_bool))
 
+def get_label(label_file):
+    """
+    Get feature of label of samples.
+
+    """
+    label = open(label_file).readlines()
+    label = [line.strip() for line in label]
+    label = label[0].split(',')
+    label.pop(-1)
+    return label
+
+def write2nifti(coords, voxel_val, file_name):
+    """
+    Write the voxel_val into a nifti file based on the coordinates.
+
+    """
+    data = np.zeros((91, 109, 91))
+    for i in range(len(coords)):
+        data[tuple(coords[i])] = voxel_val[i]
+
+
+
