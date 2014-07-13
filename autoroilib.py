@@ -375,7 +375,6 @@ def get_list_data(subj_list, data_dir):
     """
     samples = np.array([])
     for subj in subj_list:
-        #print 'load data of ' + subj
         f = os.path.join(data_dir, subj + '_data.csv')
         data = get_subj_data(f)
         if not samples.size:
@@ -417,14 +416,24 @@ def get_label(label_file):
     label.pop(-1)
     return label
 
-def write2nifti(coords, voxel_val, file_name):
+def write2array(coords, voxel_val):
     """
     Write the voxel_val into a nifti file based on the coordinates.
 
     """
     data = np.zeros((91, 109, 91))
-    for i in range(len(coords)):
-        data[tuple(coords[i])] = voxel_val[i]
+    x_coord = tuple(coords[:, 0])
+    y_coord = tuple(coords[:, 1])
+    z_coord = tuple(coords[:, 2])
+    data[x_coord, y_coord, z_coord] = voxel_val
+    return data
 
+def get_subj_sample_num(stats_file):
+    """
+    Get sample size for each subject.
 
+    """
+    info = open(stats_file).readlines()
+    info = [int(line.strip().split()[1]) for line in info]
+    return np.array(info)
 

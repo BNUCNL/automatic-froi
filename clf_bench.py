@@ -4,6 +4,7 @@
 import os
 import time
 import numpy as np
+import nibabel as nib
 
 # modules for data preparation
 import multiprocessing as mps
@@ -14,6 +15,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 from sklearn.cross_validation import cross_val_score
 
+from mypy import base as mybase
 import autoroilib as arlib
 
 base_dir = r'/nfs/h1/workingshop/huanglijie/autoroi'
@@ -161,16 +163,37 @@ for line in oob_functions:
     else:
         oob_labels.append(line.argmax())
 oob_labels = np.array(oob_labels)
+oob_labels[oob_labels==2] = 3
 nan_num = np.sum(np.isnan(oob_labels))
 print 'NaN number: %d'%nan_num
-label_idx = [1, 3]
-oob_idx = [1, 2]
-for j in range(2):
-    P = oob_labels == oob_idx[j]
-    T = y == label_idx[j]
+for j in [1, 3]:
+    P = oob_labels == j
+    T = y == j
     dice_val = arlib.dice(T, P)
-    print 'Dice for label %s: %f'%(label_idx[j], dice_val)
+    print 'Dice for label %s: %f'%(j, dice_val)
     print 'Sample number: %d'%P.sum()
+
+# write predicted label to the nifti file
+# load MNI template as data container
+fsl_dir = os.getenv('FSL_DIR')
+img = nib.load(os.path.join(fsl_dir, 'data', 'standard',
+                            'MNI152_T1_2mm_brain.nii.gz'))
+header = img.get_header()
+
+# load samples number of each subject
+sample_num_file = os.path.join(sample_dir, 'sample_num.txt')
+subj_sample_num = arlib.get_subj_sample_num(sample_num_file)
+start_num = 0
+for i in range(len(sessid)):
+    sample_num = subj_sample_num[i]
+    end_num = start_num + sample_num
+    coords = x[start_num:end_num, 0:3]
+    voxel_val = oob_labels[start_num:end_num]
+    predicted_data = arlib.write2array(coords, voxel_val)
+    start_num += sample_num
+    out_file = os.path.join(data_dir, 'predicted_files',
+                            sessid[i] + '_predicted.nii.gz')
+    mybase.save2nifti(predicted_data, header, out_file)
 
 # load feature label
 label_file = os.path.join(sample_dir, 'label.txt')
