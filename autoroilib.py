@@ -366,9 +366,7 @@ def get_subj_data(subj_file):
     Get samples from individual subject.
 
     """
-    data = np.loadtxt(subj_file, skiprows=1, delimiter=',')
-    data = data[..., 1:]
-    return data
+    return np.loadtxt(subj_file, skiprows=1, delimiter=',')
 
 def get_list_data(subj_list, data_dir):
     """
@@ -395,7 +393,6 @@ def samples_stat(samples):
     for val in uniq_label:
         print str(val) + '; ',
         print np.sum(labels == val)
-    print '\n'
 
 def dice(true_bool, predicted_bool):
     """
@@ -405,6 +402,38 @@ def dice(true_bool, predicted_bool):
     if not np.sum(true_bool):
         if not np.sum(predicted_bool):
             return 1.0
-    return 2.0 * np.sum(r * p) / (np.sum(r) + np.sum(p))
+    return 2.0 * np.sum(true_bool * predicted_bool) / \
+           (np.sum(true_bool) + np.sum(predicted_bool))
 
+def get_label(label_file):
+    """
+    Get feature of label of samples.
+
+    """
+    label = open(label_file).readlines()
+    label = [line.strip() for line in label]
+    label = label[0].split(',')
+    label.pop(-1)
+    return label
+
+def write2array(coords, voxel_val):
+    """
+    Write the voxel_val into a nifti file based on the coordinates.
+
+    """
+    data = np.zeros((91, 109, 91))
+    x_coord = tuple(coords[:, 0])
+    y_coord = tuple(coords[:, 1])
+    z_coord = tuple(coords[:, 2])
+    data[x_coord, y_coord, z_coord] = voxel_val
+    return data
+
+def get_subj_sample_num(stats_file):
+    """
+    Get sample size for each subject.
+
+    """
+    info = open(stats_file).readlines()
+    info = [int(line.strip().split()[1]) for line in info]
+    return np.array(info)
 
