@@ -124,11 +124,6 @@ cv_num = 5
 #                oob_score[t_idx, d_idx, inner_i] = clf.oob_score_
 #                print 'OOB score is %s'%(str(clf.oob_score_))
 #                # Cross-Validation
-#                clf = RandomForestClassifier(n_estimators=p[0],
-#                                             criterion='gini',
-#                                             max_depth=p[1],
-#                                             n_jobs=20)
-#                clf.fit(train_x, train_y)
 #                cv_score[t_idx, d_idx, inner_i] = clf.score(test_x, test_y)
 #                print 'Prediction score is %s'%(clf.score(test_x, test_y))
 #                print 'Dice coefficient:'
@@ -184,10 +179,10 @@ for i in range(cv_num):
     #arlib.samples_stat(test_data)
 
     # split label and feature
-    train_x = inner_train_data[..., :-1]
-    train_y = inner_train_data[..., -1]
-    test_x = inner_test_data[..., :-1]
-    test_y = inner_test_data[..., -1]
+    train_x = train_data[..., :-1]
+    train_y = train_data[..., -1]
+    test_x = test_data[..., :-1]
+    test_y = test_data[..., -1]
 
     for t_idx in range(len(n_tree)):
         for d_idx in range(len(depth)):
@@ -201,10 +196,10 @@ for i in range(cv_num):
                                          n_jobs=20,
                                          oob_score=True)
             clf.fit(train_x, train_y)
-            oob_score[t_idx, d_idx, inner_i] = clf.oob_score_
+            oob_score[t_idx, d_idx, i] = clf.oob_score_
             print 'OOB score is %s'%(str(clf.oob_score_))
             # cross-validation
-            cv_score[t_idx, d_idx, inner_i] = clf.score(test_x, test_y)
+            cv_score[t_idx, d_idx, i] = clf.score(test_x, test_y)
             print 'Prediction score is %s'%(clf.score(test_x, test_y))
             print 'Dice coefficient:'
             pred_y = clf.predict(test_x)
@@ -214,9 +209,9 @@ for i in range(cv_num):
                 dice_val = mymath.dice_coef(T, P)
                 print 'Dice for label %s: %f'%(label_idx, dice_val)
                 if label_idx == 3:
-                    ffa_dice[t_idx, d_idx, inner_i] = dice_val
+                    ffa_dice[t_idx, d_idx, i] = dice_val
                 else:
-                    ofa_dice[t_idx, d_idx, inner_i] = dice_val
+                    ofa_dice[t_idx, d_idx, i] = dice_val
             print '-----------------------'
 
 out_data_file = os.path.join(data_dir, 'parameter_cv_data.npz')
