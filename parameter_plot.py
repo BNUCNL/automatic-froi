@@ -10,7 +10,7 @@ from matplotlib import cm
 src_dir = r'/nfs/h1/workingshop/huanglijie/autoroi'
 data_dir = os.path.join(src_dir, 'data', 'cv')
 
-data_file = os.path.join(data_dir, 'cv_0', 'parameter_cv_data.npz')
+data_file = os.path.join(data_dir, 'parameter_cv_data.npz')
 data = np.load(data_file)
 cv_score = data['cv_score']
 oob_score = data['oob_score']
@@ -56,7 +56,7 @@ ofa_dice = data['ofa_dice']
 # row: n_tree, colume: depth
 fig = pl.figure()
 ax = fig.gca(projection='3d')
-ntree_idx, depth_idx = np.mgrid[5:70:5, 5:70:5]
+ntree_idx, depth_idx = np.mgrid[10:70:10, 10:70:10]
 # cv_score
 surf = ax.plot_surface(ntree_idx, depth_idx, np.mean(cv_score, axis=2),
                        cmap=cm.coolwarm, rstride=1, cstride=1)
