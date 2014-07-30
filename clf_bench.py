@@ -13,6 +13,8 @@ import functools
 # modules for modle training and testing
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
+import nibabel as nib
+from mypy import base as mybase
 
 import autoroilib as arlib
 from mypy import math as mymath
@@ -244,8 +246,7 @@ features['mni_type3'] = range(118, 895, 4)
 features['fbeta_type3'] = range(119, 896, 4)
 features['obeta_type3'] = range(120, 897, 4)
 
-feature_idx = features['coord'] + features['z_type1'] + \
-              features['z_type2'] + features['z_type3']
+feature_idx = features['coord'] + features['z_type3']
 
 print 'Feature number: %s'%(len(feature_idx))
 
@@ -253,6 +254,10 @@ print 'Feature number: %s'%(len(feature_idx))
 feature_name_file = os.path.join(data_dir, 'feature_name.txt')
 feature_name = arlib.get_label(feature_name_file)
 feature_name = [feature_name[i] for i in feature_idx]
+
+# predicted nifti directory
+pred_dir = os.path.join(data_dir, 'predicted_files')
+os.system('mkdir ' + pred_dir)
 
 # split all subjects into 5 folds
 subj_group = arlib.split_subject(sessid, cv_num)
@@ -287,9 +292,8 @@ for i in range(cv_num):
     tt = time.time()
     clf.fit(train_x, train_y)
     print 'Model training costs %s'%(time.time() - tt)
-    #clf.feature_importances_
-    for f_idx in range(len(clf.feature_importances_)):
-        print '%s %s'%(feature_name[f_idx], clf.feature_importances_[f_idx])
+    #for f_idx in range(len(clf.feature_importances_)):
+    #    print '%s %s'%(feature_name[f_idx], clf.feature_importances_[f_idx])
 
     # model testing
     cv_score[i] = clf.score(test_x, test_y)
@@ -306,6 +310,49 @@ for i in range(cv_num):
         else:
             ofa_dice[i] = dice_val
     print '-----------------------'
+
+    # get predict proba
+    clf_classes = clf.classes_
+    #print clf_classes
+    pred_prob = clf.predict_proba(test_x)
+
+    #-- save predicted label as nifti files
+    fsl_dir = os.getenv('FSL_DIR')
+    img = nib.load(os.path.join(fsl_dir, 'data', 'standard',
+                                'MNI152_T1_2mm_brain.nii.gz'))
+    header = img.get_header()
+    
+    # load sample number of each subject
+    sample_num_file = os.path.join(cv_dir, 'sample_num.txt')
+    subj_sample_num = arlib.get_subj_sample_num(sample_num_file)
+    start_num = 0
+    for subj_idx in range(len(test_sessid)):
+        sample_num = subj_sample_num[subj_idx]
+        end_num = start_num + sample_num
+        coords = test_x[start_num:end_num, 0:3]
+
+        ## save predicted label
+        #voxel_val = pred_y[start_num:end_num]
+        #pred_data = arlib.write2array(coords, voxel_val)
+        #start_num += sample_num
+        #out_file = os.path.join(pred_dir,
+        #                        test_sessid[subj_idx]+'_pred.nii.gz')
+        #mybase.save2nifti(pred_data, header, out_file)
+
+        # probability map smoothing and save to the nifti files
+        prob_data = np.zeros((91, 109, 91, len(clf_classes)))
+        for k in range(len(clf_classes)):
+            prob_val = pred_prob[start_num:end_num, k]
+            prob_data[..., k] = arlib.write2array(coords, prob_val)
+        mask = np.sum(prob_data, axis=3)
+        sm_prob_data = arlib.smooth_data(prob_data, 1)
+        sm_pred_data = np.argmax(sm_prob_data, axis=3)
+        sm_pred_data[sm_pred_data==2] = 3
+        sm_pred_data = sm_pred_data * mask
+        out_file = os.path.join(pred_dir,
+                                test_sessid[subj_idx]+'_pred.nii.gz')
+        mybase.save2nifti(sm_pred_data, header, out_file)
+        start_num += sample_num
 
 print 'Mean CV score is %s'%(cv_score.mean())
 print 'Mean FFA Dice is %s'%(ffa_dice.mean())

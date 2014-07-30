@@ -7,6 +7,7 @@ import numpy as np
 import re
 from scipy.spatial.distance import euclidean
 import time
+import scipy.ndimage as ndimage
 
 from mypy import base as mybase
 
@@ -450,4 +451,19 @@ def offset_dist(offset_1_idx, offset_2_idx):
     offset_1 = seed_offset_vtr[offset_1_idx]
     offset_2 = seed_offset_vtr[offset_2_idx]
     return euclidean(offset_1, offset_2)
+
+def smooth_data(data, sigma):
+    """
+    Smooth each 3D volume in input data.
+
+    """
+    dim = len(data.shape)
+    if dim == 4:
+        '4D data input ...'
+        vol_num = data.shape[3]
+        for i in range(vol_num):
+            data[..., i] = ndimage.gaussian_filter(data[..., i], sigma)
+    else:
+        data = ndimage.gaussian_filter(data, sigma)
+    return data
 
