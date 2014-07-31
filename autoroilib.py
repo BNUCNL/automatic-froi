@@ -50,6 +50,7 @@ def ext_feature(sid, mask_coord, prob_data):
     # load data
     label_data = nib.load(label_file).get_data()
     zstat_data = nib.load(zstat_file).get_data()
+    zstat_data[zstat_data<2.3] = 0
     face_beta_data = nib.load(face_beta_file).get_data()
     object_beta_data = nib.load(object_beta_file).get_data()
     mni_data = nib.load(mni_file).get_data()

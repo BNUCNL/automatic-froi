@@ -21,7 +21,7 @@ from mypy import math as mymath
 
 base_dir = r'/nfs/h1/workingshop/huanglijie/autoroi'
 doc_dir = os.path.join(base_dir, 'doc')
-data_dir = os.path.join(base_dir, 'data', 'cv')
+data_dir = os.path.join(base_dir, 'data', 'cv_masked')
 
 # read all subjects' SID
 sessid_file = os.path.join(doc_dir, 'sessid')
@@ -250,10 +250,10 @@ feature_idx = features['coord'] + features['z_type3']
 
 print 'Feature number: %s'%(len(feature_idx))
 
-# get feature name
-feature_name_file = os.path.join(data_dir, 'feature_name.txt')
-feature_name = arlib.get_label(feature_name_file)
-feature_name = [feature_name[i] for i in feature_idx]
+## get feature name
+#feature_name_file = os.path.join(data_dir, 'feature_name.txt')
+#feature_name = arlib.get_label(feature_name_file)
+#feature_name = [feature_name[i] for i in feature_idx]
 
 # predicted nifti directory
 pred_dir = os.path.join(data_dir, 'predicted_files')
@@ -334,10 +334,10 @@ for i in range(cv_num):
         ## save predicted label
         #voxel_val = pred_y[start_num:end_num]
         #pred_data = arlib.write2array(coords, voxel_val)
-        #start_num += sample_num
         #out_file = os.path.join(pred_dir,
         #                        test_sessid[subj_idx]+'_pred.nii.gz')
         #mybase.save2nifti(pred_data, header, out_file)
+        #start_num += sample_num
 
         # probability map smoothing and save to the nifti files
         prob_data = np.zeros((91, 109, 91, len(clf_classes)))
