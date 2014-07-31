@@ -5,6 +5,9 @@ import os
 import nibabel as nib
 import numpy as np
 import re
+from scipy.spatial.distance import euclidean
+import time
+import scipy.ndimage as ndimage
 
 from mypy import base as mybase
 
@@ -47,6 +50,7 @@ def ext_feature(sid, mask_coord, prob_data):
     # load data
     label_data = nib.load(label_file).get_data()
     zstat_data = nib.load(zstat_file).get_data()
+    zstat_data[zstat_data<2.3] = 0
     face_beta_data = nib.load(face_beta_file).get_data()
     object_beta_data = nib.load(object_beta_file).get_data()
     mni_data = nib.load(mni_file).get_data()
@@ -180,6 +184,8 @@ def ext_feature(sid, mask_coord, prob_data):
         # Diffence of offset cuboid means
         for i in range(len(seed_offset_vtr)):
             for j in range(i+1, len(seed_offset_vtr)):
+                if offset_dist(i, j) < 3:
+                    continue
                 offset_seed_1 = coord + seed_offset_vtr[i]
                 offset_seed_2 = coord + seed_offset_vtr[j]
                 if not idx:
@@ -221,7 +227,8 @@ def ext_feature(sid, mask_coord, prob_data):
             feature_buff.append(0)
         
         # store feature vector in the data matrix
-        sample_data.append(feature_buff)
+        if not zstat_data[tuple(coord)] < 2.3:
+            sample_data.append(feature_buff)
 
     return sample_label, sample_data
 
@@ -394,17 +401,6 @@ def samples_stat(samples):
         print str(val) + '; ',
         print np.sum(labels == val)
 
-def dice(true_bool, predicted_bool):
-    """
-    Compute the Dice coefficient.
-
-    """
-    if not np.sum(true_bool):
-        if not np.sum(predicted_bool):
-            return 1.0
-    return 2.0 * np.sum(true_bool * predicted_bool) / \
-           (np.sum(true_bool) + np.sum(predicted_bool))
-
 def get_label(label_file):
     """
     Get feature of label of samples.
@@ -436,4 +432,39 @@ def get_subj_sample_num(stats_file):
     info = open(stats_file).readlines()
     info = [int(line.strip().split()[1]) for line in info]
     return np.array(info)
+
+def offset_dist(offset_1_idx, offset_2_idx):
+    """
+    Get Euler distance between two different offset-seed voxel.
+
+    """
+    # seed_offset_vtr
+    offset_len = 4
+    seed_offset_vtr_x = [[i, 0, 0] for i in
+                         range(-offset_len, offset_len+1) if i]
+    seed_offset_vtr_y = [[0, i, 0] for i in 
+                         range(-offset_len, offset_len+1) if i]
+    seed_offset_vtr_z = [[0, 0, i] for i in 
+                         range(-offset_len, offset_len+1) if i]
+    seed_offset_vtr = np.array(seed_offset_vtr_x + \
+                               seed_offset_vtr_y + \
+                               seed_offset_vtr_z)
+    offset_1 = seed_offset_vtr[offset_1_idx]
+    offset_2 = seed_offset_vtr[offset_2_idx]
+    return euclidean(offset_1, offset_2)
+
+def smooth_data(data, sigma):
+    """
+    Smooth each 3D volume in input data.
+
+    """
+    dim = len(data.shape)
+    if dim == 4:
+        '4D data input ...'
+        vol_num = data.shape[3]
+        for i in range(vol_num):
+            data[..., i] = ndimage.gaussian_filter(data[..., i], sigma)
+    else:
+        data = ndimage.gaussian_filter(data, sigma)
+    return data
 
