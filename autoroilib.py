@@ -11,17 +11,12 @@ import scipy.ndimage as ndimage
 
 from mypy import base as mybase
 
-def ext_feature(sid, mask_coord, prob_data):
+def ext_feature(sid, mask_coord, mask_out=True):
     """
     Feature extraction.
 
-    Input: Subject ID, a mask data (voxel coordinates in the mask),
-           and a probabilistic activation volume.
-    Source data: subject-specific zstat map,
-                 subject-specific beta map (face and object condition),
-                 subject-specific label,
-                 probabilistic activation map,
-                 and MNI standard brain.
+    Input: Subject ID and a mask data (voxel coordinates in the mask)
+    Source data: subject-specific zstat map and subject-specific label
     Output: sample table per subject.
 
     """
@@ -34,26 +29,11 @@ def ext_feature(sid, mask_coord, prob_data):
         return
     zstat_file = os.path.join(subject_dir, 'zstat1.nii.gz')
     label_file = get_label_file(subject_dir)
-    # beta map
-    # face - fix: cope4
-    # object - fix: cope7
-    db2_dir = r'/nfs/t2/fmricenter/volume'
-    face_beta_file = os.path.join(db2_dir, sid, 'obj.gfeat', 'cope4.feat',
-                                  'stats', 'cope1.nii.gz')
-    object_beta_file = os.path.join(db2_dir, sid, 'obj.gfeat', 'cope7.feat',
-                                    'stats', 'cope1.nii.gz')
-    # mni brain template from fsl
-    fsl_dir = os.getenv('FSL_DIR')
-    mni_file = os.path.join(fsl_dir, 'data', 'standard',
-                            'MNI152_T1_2mm_brain.nii.gz')
 
     # load data
     label_data = nib.load(label_file).get_data()
     zstat_data = nib.load(zstat_file).get_data()
-    zstat_data[zstat_data<2.3] = 0
-    face_beta_data = nib.load(face_beta_file).get_data()
-    object_beta_data = nib.load(object_beta_file).get_data()
-    mni_data = nib.load(mni_file).get_data()
+    #zstat_data[zstat_data<2.3] = 0
 
     #-- extract features for each voxel in the mask
     sample_data = []
@@ -61,9 +41,7 @@ def ext_feature(sid, mask_coord, prob_data):
     sample_num = len(mask_coord)
     
     # get neighbor offset
-    neighbor_offset_1 = get_neighbor_offset(1)
-    neighbor_offset_2 = get_neighbor_offset(2)
-    neighbor_offset_3 = get_neighbor_offset(3)
+    neighbor_offset = get_neighbor_offset(1)
     
     # seed_offset_vtr
     offset_len = 4
@@ -82,6 +60,13 @@ def ext_feature(sid, mask_coord, prob_data):
 
         # voxel coordinates
         coord = mask_coord[idx]
+
+        # generate flag
+        flag = mask_out and zstat_data[tuple(coord)] < 2.3
+
+        if idx and flag:
+            continue
+
         if not idx:
             sample_label.append('coord_x')
         feature_buff.append(coord[0])
@@ -91,94 +76,6 @@ def ext_feature(sid, mask_coord, prob_data):
         if not idx:
             sample_label.append('coord_z')
         feature_buff.append(coord[2])
-        
-        # voxel value in different channels
-        if not idx:
-            sample_label.append('z')
-        elif zstat_data[tuple(coord)] < 2.3:
-            continue
-        feature_buff.append(zstat_data[tuple(coord)])
-        if not idx:
-            sample_label.append('mni')
-        feature_buff.append(mni_data[tuple(coord)])
-        if not idx:
-            sample_label.append('fbeta')
-        feature_buff.append(face_beta_data[tuple(coord)])
-        if not idx:
-            sample_label.append('obeta')
-        feature_buff.append(object_beta_data[tuple(coord)])
-        for i in range(prob_data.shape[3]):
-            if not idx:
-                sample_label.append('prob_class_' + str(i))
-            cls_prob_data = prob_data[..., i]
-            feature_buff.append(cls_prob_data[tuple(coord)])
-
-        # Type 1 feature
-        # mean value of neighbors around seed voxel
-        if not idx:
-            sample_label.append('z_neighbor_1')
-        feature_buff.append(get_mean(zstat_data, coord+neighbor_offset_1))
-        if not idx:
-            sample_label.append('z_neighbor_2')
-        feature_buff.append(get_mean(zstat_data, coord+neighbor_offset_2))
-        if not idx:
-            sample_label.append('z_neighbor_3')
-        feature_buff.append(get_mean(zstat_data, coord+neighbor_offset_3))
-        if not idx:
-            sample_label.append('mni_neighbor_1')
-        feature_buff.append(get_mean(mni_data, coord+neighbor_offset_1))
-        if not idx:
-            sample_label.append('mni_neighbor_2')
-        feature_buff.append(get_mean(mni_data, coord+neighbor_offset_2))
-        if not idx:
-            sample_label.append('mni_neighbor_3')
-        feature_buff.append(get_mean(mni_data, coord+neighbor_offset_3))
-        if not idx:
-            sample_label.append('fbeta_neighbor_1')
-        feature_buff.append(get_mean(face_beta_data, coord+neighbor_offset_1))
-        if not idx:
-            sample_label.append('fbeta_neighbor_2')
-        feature_buff.append(get_mean(face_beta_data, coord+neighbor_offset_2))
-        if not idx:
-            sample_label.append('fbeat_neighbor_3')
-        feature_buff.append(get_mean(face_beta_data, coord+neighbor_offset_3))
-        if not idx:
-            sample_label.append('obeta_neighbor_1')
-        feature_buff.append(get_mean(object_beta_data,
-                                     coord+neighbor_offset_1))
-        if not idx:
-            sample_label.append('obeta_neighbor_2')
-        feature_buff.append(get_mean(object_beta_data,
-                                     coord+neighbor_offset_2))
-        if not idx:
-            sample_label.append('obeta_neighbor_3')
-        feature_buff.append(get_mean(object_beta_data,
-                                     coord+neighbor_offset_3))
-        
-        # Type 2 feature
-        # Difference of local intensity and offset cuboid mean
-        for i in range(len(seed_offset_vtr)):
-            offset_seed = coord + seed_offset_vtr[i]
-            if not idx:
-                sample_label.append('diff_z_seed_offset_' + str(i))
-            feature_buff.append(zstat_data[tuple(coord)] - \
-                                get_mean(zstat_data,
-                                         offset_seed+neighbor_offset_1))
-            if not idx:
-                sample_label.append('diff_mni_seed_offset_' + str(i))
-            feature_buff.append(mni_data[tuple(coord)] - \
-                                get_mean(mni_data,
-                                         offset_seed+neighbor_offset_1))
-            if not idx:
-                sample_label.append('diff_fbeta_seed_offset_' + str(i))
-            feature_buff.append(face_beta_data[tuple(coord)] - \
-                                get_mean(face_beta_data,
-                                         offset_seed+neighbor_offset_1))
-            if not idx:
-                sample_label.append('diff_obeta_seed_offset_' + str(i))
-            feature_buff.append(object_beta_data[tuple(coord)] - \
-                                get_mean(object_beta_data,
-                                         offset_seed+neighbor_offset_1))
 
         # Type 3 feature
         # Diffence of offset cuboid means
@@ -192,30 +89,9 @@ def ext_feature(sid, mask_coord, prob_data):
                     sample_label.append('diff_z_offset_' + \
                                         str(i) + '_offset_' + str(j))
                 feature_buff.append(get_mean(zstat_data,
-                                        offset_seed_1+neighbor_offset_1) - \
+                                        offset_seed_1 + neighbor_offset) - \
                                     get_mean(zstat_data,
-                                        offset_seed_2+neighbor_offset_1))
-                if not idx:
-                    sample_label.append('diff_mni_offset_' + \
-                                        str(i) + '_offset_' + str(j))
-                feature_buff.append(get_mean(mni_data,
-                                        offset_seed_1+neighbor_offset_1) - \
-                                    get_mean(mni_data,
-                                        offset_seed_2+neighbor_offset_1))
-                if not idx:
-                    sample_label.append('diff_fbeta_offset_' + \
-                                        str(i) + '_offset_' + str(j))
-                feature_buff.append(get_mean(face_beta_data,
-                                        offset_seed_1+neighbor_offset_1) - \
-                                    get_mean(face_beta_data,
-                                        offset_seed_2+neighbor_offset_1))
-                if not idx:
-                    sample_label.append('diff_obeta_offset_' + \
-                                        str(i) + '_offset_' + str(j))
-                feature_buff.append(get_mean(object_beta_data,
-                                        offset_seed_1+neighbor_offset_1) - \
-                                    get_mean(object_beta_data,
-                                        offset_seed_2+neighbor_offset_1))
+                                        offset_seed_2 + neighbor_offset))
        
         # get voxel label
         label = label_data[tuple(coord)]
@@ -227,7 +103,7 @@ def ext_feature(sid, mask_coord, prob_data):
             feature_buff.append(0)
         
         # store feature vector in the data matrix
-        if not zstat_data[tuple(coord)] < 2.3:
+        if not flag:
             sample_data.append(feature_buff)
 
     return sample_label, sample_data
@@ -358,13 +234,12 @@ def save_sample(sample_label, sample_data, out_file):
         f.write(','.join(strline) + '\n')
     f.close()
 
-def ext_subj_feature(sid, mask_coord=None, prob_data=None,
-                     out_dir=None):
+def ext_subj_feature(sid, mask_coord=None, out_dir=None, mask_out=True):
     """
     Warper of ext_feature nad save_sample.
 
     """
-    sample_label, subj_data = ext_feature(sid, mask_coord, prob_data)
+    sample_label, subj_data = ext_feature(sid, mask_coord, mask_out)
     out_file = os.path.join(out_dir, sid + '_data.csv')
     save_sample(sample_label, subj_data, out_file)
 

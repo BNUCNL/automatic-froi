@@ -21,7 +21,7 @@ from mypy import math as mymath
 
 base_dir = r'/nfs/h1/workingshop/huanglijie/autoroi'
 doc_dir = os.path.join(base_dir, 'doc')
-data_dir = os.path.join(base_dir, 'data', 'cv_masked')
+data_dir = os.path.join(base_dir, 'data', 'cv_mix')
 
 # read all subjects' SID
 sessid_file = os.path.join(doc_dir, 'sessid')
@@ -31,31 +31,40 @@ sessid = [line.strip() for line in sessid]
 #-- 5-folds cross-validation
 cv_num = 5
 
-## split all subjects into 5 folds
-#subj_group = arlib.split_subject(sessid, cv_num)
-#arlib.save_subject_group(subj_group, data_dir)
-#
-## data preparation for cross-validation
-#for i in range(cv_num):
-#    cv_dir = os.path.join(data_dir, 'cv_' + str(i))
-#    os.system('mkdir ' + cv_dir)
-#    test_sessid = subj_group[i]
-#    train_sessid = []
-#    for j in range(cv_num):
-#        if not j == i:
-#            train_sessid += subj_group[j]
-#
-#    # generate mask and probability map
-#    prob_data, mask_data = arlib.make_prior(train_sessid, cv_dir)
-#    mask_coords = arlib.get_mask_coord(mask_data, cv_dir)
-#
-#    # extract features from each subject
-#    pool = mps.Pool(20)
-#    result = pool.map(functools.partial(arlib.ext_subj_feature,
-#                                        mask_coord=mask_coords,
-#                                        prob_data=prob_data,
-#                                        out_dir=cv_dir), sessid)
-#    pool.terminate()
+# split all subjects into 5 folds
+subj_group = arlib.split_subject(sessid, cv_num)
+arlib.save_subject_group(subj_group, data_dir)
+
+# data preparation for cross-validation
+for i in range(cv_num):
+    cv_dir = os.path.join(data_dir, 'cv_' + str(i))
+    os.system('mkdir ' + cv_dir)
+    test_sessid = subj_group[i]
+    train_sessid = []
+    for j in range(cv_num):
+        if not j == i:
+            train_sessid += subj_group[j]
+
+    # generate mask and probability map
+    prob_data, mask_data = arlib.make_prior(train_sessid, cv_dir)
+    mask_coords = arlib.get_mask_coord(mask_data, cv_dir)
+
+    # extract features from each subject
+    # train dataset
+    pool = mps.Pool(20)
+    result = pool.map(functools.partial(arlib.ext_subj_feature,
+                                        mask_coord=mask_coords,
+                                        out_dir=cv_dir, mask_out=True),
+                      train_sessid)
+    pool.terminate()
+
+    # test dataset
+    pool = mps.Pool(20)
+    result = pool.map(functools.partial(arlib.ext_subj_feature,
+                                        mask_coord=mask_coords,
+                                        out_dir=cv_dir, mask_out=False),
+                      test_sessid)
+    pool.terminate()
 
 ##-- Cross-validation to select parameters with nested-CV
 ## split all subjects into 5 folds
