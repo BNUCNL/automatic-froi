@@ -68,6 +68,10 @@ def ext_feature(sid, mask_coord, mask_out=True):
             continue
 
         if not idx:
+            sample_label.append('z_val')
+        feature_buff.append(zstat_data[tuple(coord)])
+
+        if not idx:
             sample_label.append('coord_x')
         feature_buff.append(coord[0])
         if not idx:
