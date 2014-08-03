@@ -12,7 +12,7 @@ import autoroilib as arlib
 
 base_dir = r'/nfs/h1/workingshop/huanglijie/autoroi'
 doc_dir = os.path.join(base_dir, 'doc')
-data_dir = os.path.join(base_dir, 'data', 'cv_masked')
+data_dir = os.path.join(base_dir, 'data', 'cv_mix')
 
 # read all subjects' SID
 sessid_file = os.path.join(doc_dir, 'sessid')
@@ -52,15 +52,15 @@ sessid = [line.strip() for line in sessid]
 #os.system(cmd_str_1)
 #os.system(cmd_str_2)
 
-##-- merge predicted nifti files
-#merged_predicted_file = os.path.join(data_dir, 'predicted_files',
-#                                     'merged_predicted_label.nii.gz')
-#cmd_str = 'fslmerge -a ' + merged_predicted_file
-#for subj in sessid:
-#    pre_file = os.path.join(data_dir, 'predicted_files',
-#                            subj + '_pred.nii.gz')
-#    cmd_str += ' ' + pre_file
-#os.system(cmd_str)
+#-- merge predicted nifti files
+merged_predicted_file = os.path.join(data_dir, 'predicted_files',
+                                     'merged_predicted_label.nii.gz')
+cmd_str = 'fslmerge -a ' + merged_predicted_file
+for subj in sessid:
+    pre_file = os.path.join(data_dir, 'predicted_files',
+                            subj + '_pred.nii.gz')
+    cmd_str += ' ' + pre_file
+os.system(cmd_str)
 
 ##-- compare predicted label and ground-truth for each subject
 #src_dir = os.path.join(data_dir, 'predicted_files')
